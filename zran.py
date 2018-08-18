@@ -1,1 +1,7 @@
-this is spartaaaaa
+
+### this is spartaaaaa
+
+### zran yanggogi
+
+import ss
+
