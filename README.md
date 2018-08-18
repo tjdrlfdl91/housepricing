@@ -1,5 +1,5 @@
 # House Prices: Advanced Regression Techniques
-주소: https://www.kaggle.com/c/house-prices-advanced-regression-techniques/rules
+주소: https://www.kaggle.com/c/house-prices-advanced-regression-techniques
 
 ## Intro
 - 우리가 git으로 협업하는 첫 번째 프로젝트입니다
