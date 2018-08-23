@@ -1,1 +1,1 @@
-select from where
+select from where groupby
