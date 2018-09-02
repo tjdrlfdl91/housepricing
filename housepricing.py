@@ -34,6 +34,9 @@ import xgboost as xgb
 train = pd.read_csv("train.csv")
 test = pd.read_csv("test.csv")
 
+# 짜증나니까 MSZoning 변수에 C (all)을 C로 바꿔줍시다
+train = train.replace("C (all)" , "C")
+
 X = train.drop(["SalePrice"] , axis = 1)
 Y = train.SalePrice
 
@@ -84,6 +87,7 @@ for v in list(X):
         else: pass
     except TypeError: pass
 
+
 # 10개 정도 변수가 추려집니다
 #OverallQual
 #YearBuilt
@@ -97,9 +101,41 @@ for v in list(X):
 #GarageArea
 
 # 이 변수들로 scatter plot을 그리다보면 우선 제거 대상 outlier들을 찾아볼 수 있습니다
-plt.scatter(X['TotalBsmtSF'], Y)
+plt.scatter(X['OverallQual'], Y)
 plt.scatter(X['1stFlrSF'], Y)
 plt.scatter(X['GrLivArea'], Y)
 plt.scatter(X['TotRmsAbvGrd'], Y)
 plt.scatter(X['GarageArea'], Y)
+
+# str 또는 int으로 구성된 변수를 dummy로 만들어줍시다
+# 우선 Unique한 값이 10개 미만인 변수만 dummy화 해줍시다
+
+def MakeDummy(df, limit_num):
+    VarList = pd.DataFrame()
+    for var in df:
+        if df[var].dtypes == 'O' and len(set(df[var])) < limit_num:
+            dum = pd.DataFrame()
+            dum = pd.get_dummies(df[var], prefix = var)
+            VarList = pd.concat([VarList, dum], axis = 1)
+        elif df[var].dtypes == 'int64' and len(set(df[var])) < limit_num:
+            dum = pd.DataFrame()
+            dum = pd.get_dummies(df[var], prefix = var)
+            VarList = pd.concat([VarList, dum], axis = 1)
+        else: pass
+    return VarList
+
+dum = MakeDummy(X, 9)
+
+# Dummy화 된 변수를 X에 붙여줍시다
+X = pd.concat([X, dum], axis = 1)
+
+train.corr(method = 'pearson')
+
+# 앞에서 해줬던 상관관계 분석을 다시 해보면 6개 정도 변수가 더 추려집니다
+#ExterQual_TA
+#BsmtQual_Ex
+#KitchenQual_Ex
+#KitchenQual_TA
+#FullBath_1
+#GarageCars_3
 
