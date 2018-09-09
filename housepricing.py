@@ -6,11 +6,16 @@ Created on Sun Aug 26 14:23:33 2018
 """
 # 우선 current working directory를 설정하고 생각합시다
 # cwd에 본인 working directory 적어넣으세요
-cwd = "C:/Python/git/housepricing"
+
+cwd = "C:/Users/mogae/Documents/Python_Scripts/House_Pricing/housepricing"
 
 import os
 os.getcwd()
 os.chdir(cwd)
+
+# warnings 무시하고
+# import warnings
+# warnings.filterwarnings('ignore')
 
 # 그동안 사용했던 주요 라이브러리도 import 해옵시다
 import numpy as np
@@ -28,6 +33,18 @@ from sklearn.cross_validation import train_test_split , StratifiedKFold
 from sklearn.feature_selection import RFECV
 from sklearn.decomposition import PCA
 import xgboost as xgb
+
+#우리 전용 라이브러리도
+import ht_utils
+
+train_df = pd.read_csv("train.csv")
+test_df = pd.read_csv("test.csv")
+
+ddd = ht_cut(train_df)
+
+type(ddd[0][1])
+
+ht_describe(train_df)
 
 # 변수 탐색을 시작합시다
 # data descripion 파일도 같이 참조하세요
