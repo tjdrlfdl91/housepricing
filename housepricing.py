@@ -47,6 +47,17 @@ train = train.replace("C (all)" , "C")
 X = train.drop(["SalePrice"] , axis = 1)
 Y = train.SalePrice
 
+
+######
+
+# 이 단계에서 NaN 값 처리 방법이 필요랍니다
+# 작업 착수하겠읍니다
+test.head()
+test.dropna(inplace = True)
+
+######
+
+
 # 변수 탐색을 시작합시다
 # data descripion 파일도 같이 참조하세요
 # ht_describe로 어떤 data type이 많은지 샇펴보고
@@ -62,8 +73,6 @@ df_int = temp[1][1]
 df_object = temp[2][1]
 del temp
 
-
-list(train)
 
 # .head()로 모든 column을 다 훑어볼 수 있게 합시다
 # 변수가 오지게 많습니다
@@ -123,11 +132,30 @@ plt.scatter(X['GrLivArea'], Y)
 plt.scatter(X['TotRmsAbvGrd'], Y)
 plt.scatter(X['GarageArea'], Y)
 
-# str 또는 int으로 구성된 변수를 dummy로 만들어줍시다
-# 우선 Unique한 값이 10개 미만인 변수만 dummy화 해줍시다
-# ht_makedummy를 사용하면 쉽게 dummy화 해줄 수 있습니다
 
-X_dum = ht.ht_makedummy(X, 10) #dummy로 바꾸지 않은 X와 비교를 할 수 있습니다
+######
+#더미로 바꿔주기 전에 VT를 해봐야합니다
+#NaN값 처리되면 해보죠
+
+
+from sklearn.feature_selection import VarianceThreshold
+
+def variance_threshold_selector(data, threshold = (.8*(1 - .8))):
+    selector = VarianceThreshold(threshold)
+    selector.fit(data)
+    return data[data.columns[selector.get_support(indices=True)]]
+
+X_varthres = variance_threshold_selector(df_float)
+
+######
+
+
+# ht_makedummy를 사용하면 쉽게 dummy화 해줄 수 있습니다
+# str 또는 int으로 구성된 변수 (n개 미만인 경우)를 dummy로 만들어줍시다
+
+X_dum = ht.ht_makedummy(X, 1)
+
+X_dum.head()
 
 # 앞에서 해줬던 상관관계 분석을 다시 해보면 6개 정도 변수가 더 추려집니다
 ht.ht_xycorr(X_dum, Y, 0.5)
@@ -139,30 +167,3 @@ ht.ht_xycorr(X_dum, Y, 0.5)
 #FullBath_1
 #GarageCars_3
 
-# Variance Threshold를 통해서 필요 없는 변수를 날려봅시다
-# 우선 dummy화 되지 않은 String 변수를 없애줍니다 (다른 처리 방법을 찾아 볼 필요도 있습니다)
-for i in df_object:
-    if df_object[i].nunique() < 10: pass
-    else: print(i)
-#Neighborhood
-#Exterior1st
-#Exterior2nd
-
-#위 3개 변수를 없애줍시다
-X_dum.drop(['Neighborhood','Exterior1st','Exterior2nd'], axis = 1, inplace = True)
-
-# 그리고 NaN 값이 있는 행을 없애줍시다 (다른 처리 방법을 찾아 볼 필요도 있습니다)
-X_dum.dropna(inplace = True)
-# obs.가 1460에서 1121로 줄어듭니다
-
-# Variance Threshold 모델을 돌려보면 279개 변수가 72개로 줄어듭니다
-from sklearn.feature_selection import VarianceThreshold
-
-def variance_threshold_selector(data, threshold = (.8*(1 - .8))):
-    selector = VarianceThreshold(threshold)
-    selector.fit(data)
-    return data[data.columns[selector.get_support(indices=True)]]
-
-X_varthres = variance_threshold_selector(X_dum)
-
-X_varthres.head()

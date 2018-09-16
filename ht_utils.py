@@ -47,20 +47,29 @@ def ht_cut(df): # cut the dataframe on datatypes and return a list of them
     
     return dflist
 
-def ht_makedummy(df, limit_num): # find variables with limited unique values and replace them into dummies 
-    VarList = pd.DataFrame()
-    for var in df:
-        if df[var].dtypes == 'O' and len(set(df[var])) < limit_num:
-            dum = pd.DataFrame()
-            dum = pd.get_dummies(df[var], prefix = var)
-            VarList = pd.concat([VarList, dum], axis = 1)
-        elif df[var].dtypes == 'int64' and len(set(df[var])) < limit_num:
-            dum = pd.DataFrame()
-            dum = pd.get_dummies(df[var], prefix = var)
-            VarList = pd.concat([VarList, dum], axis = 1)
+
+def ht_makedummy(df, limit_num, var_list = None): # change variables with stirngs and specific integers into dummies // if you insert var_list, this will only target the columns in the list.
+    return_list = pd.DataFrame()
+    if var_list == None:
+        var_list = list(df)
+    else: pass
+    for var in list(df):
+        if var in var_list:    
+            if df[var].dtypes == 'O':
+                dum = pd.DataFrame()
+                dum = pd.get_dummies(df[var], prefix = var)
+                return_list = pd.concat([return_list, dum], axis = 1)
+            elif df[var].dtypes == 'int64' and len(set(df[var])) < limit_num:
+                dum = pd.DataFrame()
+                dum = pd.get_dummies(df[var], prefix = var)
+                return_list = pd.concat([return_list, dum], axis = 1)
+            else:
+                return_list = pd.concat([return_list, df[var]], axis = 1)
         else:
-            VarList = pd.concat([VarList, df[var]], axis = 1)
-    return VarList
+            return_list = pd.concat([return_list, df[var]], axis = 1)
+    return return_list
+
+
 
 def ht_xycorr(X, Y, threshold): # find variables in X which has higher absolute corr. with Y than threshold
     for v in list(X):
