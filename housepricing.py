@@ -7,7 +7,7 @@ Created on Sun Aug 26 14:23:33 2018
 # 우선 current working directory를 설정하고 생각합시다
 # cwd에 본인 working directory 적어넣으세요
 
-cwd = "C:/Users/mogae/Documents/Python_Scripts/House_Pricing/housepricing"
+cwd = "C:/Python/git/housepricing"
 
 import os
 os.getcwd()
@@ -34,30 +34,45 @@ from sklearn.feature_selection import RFECV
 from sklearn.decomposition import PCA
 import xgboost as xgb
 
-#우리 전용 라이브러리도
-import ht_utils
+# 우리 전용 라이브러리도 import 해옵시다
+import ht_utils as ht
 
-train_df = pd.read_csv("train.csv")
-test_df = pd.read_csv("test.csv")
-
-ddd = ht_cut(train_df)
-
-type(ddd[0][1])
-
-ht_describe(train_df)
-
-# 변수 탐색을 시작합시다
-# data descripion 파일도 같이 참조하세요
 train = pd.read_csv("train.csv")
 test = pd.read_csv("test.csv")
 
-# 짜증나니까 MSZoning 변수에 C (all)을 C로 바꿔줍시다
+# 그 전에 짜증나니까 MSZoning 변수에 C (all)을 C로 바꿔줍시다
 train = train.replace("C (all)" , "C")
 
+# X와 Y로 나눠주고
 X = train.drop(["SalePrice"] , axis = 1)
 Y = train.SalePrice
 
-list(train)
+
+######
+
+# 이 단계에서 NaN 값 처리 방법이 필요랍니다
+# 작업 착수하겠읍니다
+test.head()
+test.dropna(inplace = True)
+
+######
+
+
+# 변수 탐색을 시작합시다
+# data descripion 파일도 같이 참조하세요
+# ht_describe로 어떤 data type이 많은지 샇펴보고
+
+ht.ht_describe(X)
+
+# ht_cut을 통해 data type에 따라 전체 df를 쪼갤 수 있습니다
+# ht_describe에서 나왔던 순서에 따라 쪼개집니다
+# ht_cut 사용법은 아래 참조
+temp = ht.ht_cut(X)
+df_float = temp[0][1]
+df_int = temp[1][1]
+df_object = temp[2][1]
+del temp
+
 
 # .head()로 모든 column을 다 훑어볼 수 있게 합시다
 # 변수가 오지게 많습니다
@@ -65,11 +80,11 @@ pd.options.display.max_columns = None
 train.head()
 
 # 종속변수인 SalePrice 및 기타 눈에 띄는 변수들의 분포를 볼 수 있습니다
-sns.distplot(train['SalePrice'])
-sns.distplot(train['LotArea'])
-sns.distplot(train['OverallQual'])
-sns.distplot(train['OverallCond'])
-sns.distplot(train['YearBuilt'])
+sns.distplot(Y)
+sns.distplot(X['LotArea'])
+sns.distplot(X['OverallQual'])
+sns.distplot(X['OverallCond'])
+sns.distplot(X['YearBuilt'])
 
 # 변수 간 상관관계부터 살펴 봅시다
 # 제일 바깥 줄에 있는 SalePrice와 다른 독립변수들 간의 상관관계를 볼 수 있습니다
@@ -95,15 +110,8 @@ correlation_matrix(train)
 
 # 상관관계를 숫자로 뽑아냅시다
 # SalePrice와 상관관계가 높은 (0.5 이상) 변수들부터 추려봅시다
-train.corr(method = 'pearson')
-
-for v in list(X):
-    try:
-        if abs(Y.corr(X[v])) > 0.5:
-            print(v)
-        else: pass
-    except TypeError: pass
-
+# ht_xycorr을 이용해서 쉽게 뽑아낼 수 있습니다 (Y에는 1개의 변수만, threshold는 0~1사이의 값)
+ht.ht_xycorr(X, Y, 0.5)
 
 # 10개 정도 변수가 추려집니다
 #OverallQual
@@ -124,31 +132,34 @@ plt.scatter(X['GrLivArea'], Y)
 plt.scatter(X['TotRmsAbvGrd'], Y)
 plt.scatter(X['GarageArea'], Y)
 
-# str 또는 int으로 구성된 변수를 dummy로 만들어줍시다
-# 우선 Unique한 값이 10개 미만인 변수만 dummy화 해줍시다
 
-def MakeDummy(df, limit_num):
-    VarList = pd.DataFrame()
-    for var in df:
-        if df[var].dtypes == 'O' and len(set(df[var])) < limit_num:
-            dum = pd.DataFrame()
-            dum = pd.get_dummies(df[var], prefix = var)
-            VarList = pd.concat([VarList, dum], axis = 1)
-        elif df[var].dtypes == 'int64' and len(set(df[var])) < limit_num:
-            dum = pd.DataFrame()
-            dum = pd.get_dummies(df[var], prefix = var)
-            VarList = pd.concat([VarList, dum], axis = 1)
-        else: pass
-    return VarList
+######
+#더미로 바꿔주기 전에 VT를 해봐야합니다
+#NaN값 처리되면 해보죠
 
-dum = MakeDummy(X, 9)
 
-# Dummy화 된 변수를 X에 붙여줍시다
-X = pd.concat([X, dum], axis = 1)
+from sklearn.feature_selection import VarianceThreshold
 
-train.corr(method = 'pearson')
+def variance_threshold_selector(data, threshold = (.8*(1 - .8))):
+    selector = VarianceThreshold(threshold)
+    selector.fit(data)
+    return data[data.columns[selector.get_support(indices=True)]]
+
+X_varthres = variance_threshold_selector(df_float)
+
+######
+
+
+# ht_makedummy를 사용하면 쉽게 dummy화 해줄 수 있습니다
+# str 또는 int으로 구성된 변수 (n개 미만인 경우)를 dummy로 만들어줍시다
+
+X_dum = ht.ht_makedummy(X, 1)
+
+X_dum.head()
 
 # 앞에서 해줬던 상관관계 분석을 다시 해보면 6개 정도 변수가 더 추려집니다
+ht.ht_xycorr(X_dum, Y, 0.5)
+
 #ExterQual_TA
 #BsmtQual_Ex
 #KitchenQual_Ex
