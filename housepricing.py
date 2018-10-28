@@ -67,7 +67,15 @@ from sklearn.preprocessing import Imputer , Normalizer , scale, LabelEncoder, St
 from sklearn.cross_validation import train_test_split , StratifiedKFold
 from sklearn.feature_selection import RFECV
 from sklearn.decomposition import PCA
+
 import xgboost as xgb
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.linear_model import Lasso, ElasticNet, LinearRegression
+
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import RobustScaler
+
+from sklearn.svm import SVR
 
 # 우리 전용 라이브러리인 ht_utils도 import 해옵시다
 import ht_utils as ht
@@ -269,3 +277,132 @@ dum.head()
 
 ###2.5.2 Label Encoding
 
+ht.ht_describe(full)
+
+
+from sklearn.model_selection import KFold, cross_val_score, train_test_split
+
+train_valid_X = dum.iloc[0:1460]
+train_valid_y = Y
+test_X = dum.iloc[1460:2919]
+
+train_X , valid_X , train_y , valid_y = train_test_split( train_valid_X , train_valid_y , train_size = .7, random_state = 1126 )
+
+print (dum.shape , train_X.shape , valid_X.shape , train_y.shape , valid_y.shape , test_X.shape)
+
+model = xgb.XGBRegressor(max_depth = 3, n_estimator = 2200, learning_rate = 0.05)
+model = xgb.XGBRegressor(colsample_bytree=0.4603, gamma=0.0468, 
+                             learning_rate=0.05, max_depth=3, 
+                             min_child_weight=1.7817, n_estimators=2200,
+                             reg_alpha=0.4640, reg_lambda=0.8571,
+                             subsample=0.5213, silent=1,
+                             random_state =7, nthread = -1)
+
+model.fit( train_X , train_y )
+print (model.score( train_X , train_y ) , model.score( valid_X , valid_y ))
+
+test_Y = model.predict( test_X )
+Id = dum[1460:2919].Id
+
+submission = pd.DataFrame( { 'Id': Id , 'SalePrice': test_Y } )
+
+submission.to_csv( 'submission_xgb_2.csv' , index = False )
+
+ht.ht_describe(dum)
+
+train_X = train_X.reset_index()
+train_X = train_X.drop(['index'] , axis = 1)
+train_X.head()
+
+valid_X = valid_X.reset_index()
+valid_X = valid_X.drop(['index'] , axis = 1)
+valid_X.head()
+
+train_y = train_y.reset_index()
+train_y = train_y.drop(['index'] , axis = 1)
+
+valid_y = valid_y.reset_index()
+valid_y = valid_y.drop(['index'] , axis = 1)
+
+
+#############################################################
+
+xgb_model = xgb.XGBRegressor(colsample_bytree=0.4603, gamma=0.0468, 
+                             learning_rate=0.05, max_depth=3, 
+                             min_child_weight=1.7817, n_estimators=2200,
+                             reg_alpha=0.4640, reg_lambda=0.8571,
+                             subsample=0.5213, silent=1,
+                             random_state =7, nthread = -1)
+
+enet = make_pipeline(RobustScaler(), ElasticNet(alpha=0.0005, l1_ratio=.9, random_state=3))
+
+rf = RandomForestRegressor(n_estimators=100, max_depth = 3)
+
+lm = LinearRegression()
+
+gbm = GradientBoostingRegressor()
+
+lasso = make_pipeline(RobustScaler(), Lasso(alpha =0.0005, random_state=1))
+
+svr = SVR()
+
+m_model = ht.ht_metamodel(base_models = (xgb_model, enet, rf, SVR) , meta_model = lasso, n_folds = 5)
+
+
+    def __init__(self, base_models, meta_model, n_folds=5):
+        self.base_models = base_models
+        self.meta_model = meta_model
+        self.n_folds = n_folds
+
+    def fit(self, X, y):
+        self.base_models_ = [list() for x in self.base_models]
+        self.meta_model_ = clone(self.meta_model)
+        kfold = KFold(n_splits=self.n_folds, shuffle=True, random_state=156)
+        
+        # Train cloned base models then create out-of-fold predictions
+        # that are needed to train the cloned meta-model
+        out_of_fold_predictions = np.zeros((X.shape[0], len(self.base_models)))
+        for i, model in enumerate(self.base_models):
+            for train_index, holdout_index in kfold.split(X, y):
+                instance = clone(model)
+                self.base_models_[i].append(instance)
+                instance.fit(X[train_index], y[train_index])
+                y_pred = instance.predict(X[holdout_index])
+                out_of_fold_predictions[holdout_index, i] = y_pred
+                
+        # Now train the cloned  meta-model using the out-of-fold predictions as new feature
+        self.meta_model_.fit(out_of_fold_predictions, y)
+        return self
+
+
+ht_xycorr(train_valid_X, train_valid_y, 0.4)
+
+    
+    for v in list(train_valid_X):
+            if abs(train_valid_y.corr(train_valid_X[v])) > 0.4:
+                corr_list.append(v)
+            else: pass
+    
+corr_list
+
+dum_temp = dum[corr_list]    
+dum_temp.head()
+
+_train_valid_X = dum_temp.iloc[0:1460]
+_train_valid_y = Y
+_test_X = dum_temp.iloc[1460:2919]
+
+_train_X , _valid_X , _train_y , _valid_y = train_test_split( _train_valid_X , _train_valid_y , train_size = .7, random_state = 1126 )
+
+
+m_model.fit( train_X.values , train_y.values )
+print (m_model.score( train_X.values , train_y.values ) , m_model.score( valid_X.values , valid_y.values ))
+
+
+m_test_Y = m_model.predict(test_X.values)
+
+Id = dum[1460:2919].Id
+
+submission = pd.DataFrame( { 'Id': Id , 'SalePrice': m_test_Y } )
+
+submission.to_csv( 'submission_meta_model_less_vars.csv' , index = False )
